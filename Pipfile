@@ -10,6 +10,7 @@ format = "black ./"
 [packages]
 streamlit = "*"
 pyproj = "*"
+requests = "*"
 
 [dev-packages]
 

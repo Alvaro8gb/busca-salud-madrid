@@ -16,14 +16,18 @@ _RADIO_BASE = {"Hospitales": 260, "Atención primaria": 160}
 
 class MapView:
     @staticmethod
-    def render(df: pd.DataFrame) -> str | None:
+    def render(
+        df: pd.DataFrame,
+        origin: dict | None = None,
+        radius_km: float | None = None,
+    ) -> str | None:
         puntos = df[df["tiene_ubicacion"]]
         if puntos.empty:
             st.info("No hay centros con ubicación para los filtros seleccionados.")
             return None
 
         data = MapView._scatter_data(puntos)
-        layer = pdk.Layer(
+        layers = [pdk.Layer(
             "ScatterplotLayer",
             id="centros",
             data=data,
@@ -34,15 +38,48 @@ class MapView:
             radius_max_pixels=16,
             pickable=True,
             auto_highlight=True,
-        )
+        )]
+
+        if origin:
+            layers.append(pdk.Layer(
+                "ScatterplotLayer",
+                id="origen",
+                data=[{"lat": origin["lat"], "lon": origin["lon"]}],
+                get_position="[lon, lat]",
+                get_fill_color=[25, 118, 210, 230],
+                get_radius=120,
+                radius_min_pixels=7,
+                radius_max_pixels=12,
+                pickable=False,
+            ))
+        if origin and radius_km:
+            layers.append(pdk.Layer(
+                "ScatterplotLayer",
+                id="radio",
+                data=[{"lat": origin["lat"], "lon": origin["lon"]}],
+                get_position="[lon, lat]",
+                get_fill_color=[25, 118, 210, 20],
+                get_line_color=[25, 118, 210, 180],
+                stroked=True,
+                filled=True,
+                get_radius=radius_km * 1000,
+                radius_min_pixels=1,
+                pickable=False,
+            ))
+
         tooltip = {
             "html": "<b>{tipo}</b><br/>{direccion}<br/>{municipio}<br/>{n_servicios} servicios",
             "style": _TOOLTIP_STYLE,
         }
         MapView._legend(puntos)
+        view_points = puntos
+        if origin:
+            origin_point = pd.DataFrame([{"lat": origin["lat"], "lon": origin["lon"]}])
+            view_points = pd.concat([puntos[["lat", "lon"]], origin_point], ignore_index=True)
+
         deck = pdk.Deck(
-            layers=[layer],
-            initial_view_state=MapView._view_state(puntos),
+            layers=layers,
+            initial_view_state=MapView._view_state(view_points),
             tooltip=tooltip,
         )
 

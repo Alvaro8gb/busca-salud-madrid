@@ -27,40 +27,46 @@ def _reset_filters() -> None:
 class SidebarView:
     @staticmethod
     def render(catalog: Catalog) -> FilterCriteria:
-        st.sidebar.header("Filtros")
-        st.sidebar.caption("Si dejas un filtro vacío, se muestran todos los valores.")
+        st.subheader("Filtros")
 
-        texto = st.sidebar.text_input(
+        texto = st.text_input(
             "Buscar",
             key=_KEYS["texto"],
             placeholder="Calle, municipio, nº de registro…",
         )
-        st.sidebar.subheader("Tipo de centro")
-        categorias = st.sidebar.multiselect(
-            "Categoría", catalog.categorias, key=_KEYS["categorias"]
-        )
 
-        # Los tipos disponibles dependen de las categorías elegidas.
+        filter_category, filter_owner = st.columns(2)
+        with filter_category:
+            categorias = st.pills(
+                "Categoría",
+                catalog.categorias,
+                selection_mode="multi",
+                key=_KEYS["categorias"],
+            )
+        with filter_owner:
+            titularidades = st.pills(
+                "Titularidad",
+                ["Público", "Privado"],
+                selection_mode="multi",
+                key=_KEYS["titularidades"],
+            )
+
         pool = categorias or catalog.categorias
         tipos_disponibles = sorted(
             {t for c in pool for t in catalog.tipos_por_categoria.get(c, [])}
         )
-        # Evita que quede seleccionado un tipo que ya no está disponible.
         st.session_state[_KEYS["tipos"]] = [
             t
             for t in st.session_state.get(_KEYS["tipos"], [])
             if t in tipos_disponibles
         ]
-        tipos = st.sidebar.multiselect(
-            "Tipo de centro", tipos_disponibles, key=_KEYS["tipos"]
-        )
 
-        with st.sidebar.expander("Más filtros", expanded=False):
+        with st.expander("Filtros opcionales", expanded=False):
+            tipos = st.multiselect(
+                "Tipo de centro", tipos_disponibles, key=_KEYS["tipos"]
+            )
             municipios = st.multiselect(
                 "Municipio", catalog.municipios, key=_KEYS["municipios"]
-            )
-            titularidades = st.multiselect(
-                "Titularidad", catalog.titularidades, key=_KEYS["titularidades"]
             )
             especialidades = st.multiselect(
                 "Servicio / especialidad",
@@ -68,7 +74,7 @@ class SidebarView:
                 key=_KEYS["especialidades"],
             )
 
-        st.sidebar.button("Limpiar filtros", on_click=_reset_filters, width="stretch")
+        st.button("Limpiar filtros", on_click=_reset_filters, icon=":material/filter_alt_off:")
 
         criteria = FilterCriteria(
             categorias=tuple(categorias),

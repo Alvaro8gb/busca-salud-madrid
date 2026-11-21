@@ -53,6 +53,18 @@ class HealthModel:
         match = self._centers[self._centers["registro"] == registro]
         return None if match.empty else match.iloc[0].to_dict()
 
+    def find_by_service(self, service: str) -> pd.DataFrame:
+        """Devuelve centros que ofrecen un servicio concreto."""
+        service_normalized = normalize_text(service)
+
+        def matches(services: list[str]) -> bool:
+            return any(service_normalized in normalize_text(value) for value in services)
+
+        return self._centers[
+            self._centers["servicios"].map(matches)
+            & self._centers["tiene_ubicacion"]
+        ]
+
     # -------------------------------------------------------------- estadísticas
     @staticmethod
     def summarize(df: pd.DataFrame) -> dict:
