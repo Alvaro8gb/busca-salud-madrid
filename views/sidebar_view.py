@@ -27,7 +27,7 @@ def _reset_filters() -> None:
 class SidebarView:
     @staticmethod
     def render(catalog: Catalog) -> FilterCriteria:
-        st.subheader("Filtros")
+        #st.subheader("Filtros")
 
         texto = st.text_input(
             "Buscar",

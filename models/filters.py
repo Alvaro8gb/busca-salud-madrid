@@ -15,6 +15,9 @@ class FilterCriteria:
     titularidades: tuple[str, ...] = ()
     especialidades: tuple[str, ...] = ()
     texto: str = ""
+    location: str = ""
+    reason: str = ""
+    radius_km: float = 10.0
 
 
 @dataclass(frozen=True)

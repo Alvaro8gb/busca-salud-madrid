@@ -56,56 +56,170 @@ export default function (component) {
 )
 
 
+_RESET_KEYS = (
+    "unified_health_query",
+    "gps_coordinates",
+    "gps_address_applied",
+    "nlp_query_signature",
+    "nlp_categorias",
+    "nlp_titularidades",
+    "nlp_tipos",
+    "nlp_municipios",
+    "nlp_especialidades",
+    "nlp_location",
+    "nlp_reason",
+    "nlp_radius",
+    "care_search_results",
+    "care_origin",
+    "care_radius_km",
+)
+
+
+def _clear_all_filters() -> None:
+    for key in _RESET_KEYS:
+        st.session_state.pop(key, None)
+
+
 class LocationSearchView:
     @staticmethod
-    def render(servicios: list[str]) -> tuple[str, str, float, bool]:
-        st.subheader("Buscar atención cercana")
+    def render(catalog) -> tuple[object, bool]:
+        from models.nlp_parser import parse_search
 
-        with st.form("location_search", border=True):
-            gps_result = _GEOLOCATION_COMPONENT(
-                key="gps_location",
-                data={"label": "Usar mi ubicación GPS"},
-                on_coordinates_change=lambda: None,
-                on_requested_change=lambda: None,
+        st.subheader("Buscar atención sanitaria")
+
+        gps_result = _GEOLOCATION_COMPONENT(
+            key="gps_location",
+            data={"label": "Usar mi ubicación GPS"},
+            on_coordinates_change=lambda: None,
+            on_requested_change=lambda: None,
+        )
+
+        coordinates = getattr(gps_result, "coordinates", None)
+        if coordinates:
+            st.session_state["gps_coordinates"] = coordinates
+            address = reverse_geocode_location(
+                float(coordinates["lat"]), float(coordinates["lon"])
+            )
+            if address and st.session_state.get("gps_address_applied") != address:
+                st.session_state["nlp_location"] = address
+                st.session_state["gps_address_applied"] = address
+
+        query = st.text_input(
+            "Describe lo que buscas",
+            key="unified_health_query",
+            placeholder="Ej. Cardiología pública, privado, para niños",
+            type="default",
+        )
+
+        detected = parse_search(query, catalog)
+
+        query_signature = query.strip().lower()
+        if st.session_state.get("nlp_query_signature") != query_signature:
+            for key in (
+                "nlp_categorias", "nlp_titularidades", "nlp_tipos",
+                "nlp_municipios", "nlp_especialidades", "nlp_location",
+                "nlp_reason", "nlp_radius",
+            ):
+                st.session_state.pop(key, None)
+            st.session_state["nlp_query_signature"] = query_signature
+
+        if "nlp_location" not in st.session_state:
+            st.session_state["nlp_location"] = detected.location
+
+        with st.container(border=True):
+            st.subheader("Dirección")
+            location = st.text_input(
+                "Dirección o municipio",
+                key="nlp_location",
+                placeholder="Ej. Calle Alcalá 1, Madrid",
+                label_visibility="collapsed",
             )
 
-            coordinates = getattr(gps_result, "coordinates", None)
-            if coordinates:
-                st.session_state["gps_coordinates"] = coordinates
-                address = reverse_geocode_location(
-                    float(coordinates["lat"]), float(coordinates["lon"])
-                )
-                if address:
-                    st.session_state["care_location"] = address
+        submitted = st.button(
+            "Analizar y buscar",
+            icon=":material/search:",
+            type="primary",
+            key="unified_search_submit",
+        )
 
-            location, reason, radius_km, submitted = None, None, 10, False
-            with st.container(horizontal=True, vertical_alignment="bottom"):
-                location = st.text_input(
-                    "Ubicación",
-                    placeholder="Ej. Calle Alcalá 1, Madrid",
-                    key="care_location",
-                )
-                submitted = st.form_submit_button(
-                    "Buscar centros",
-                    icon=":material/search:",
-                    type="primary",
-                )
+        with st.expander("Filtros detectados y editables", expanded=False):
+            tipos_disponibles = sorted({
+                tipo
+                for tipos in catalog.tipos_por_categoria.values()
+                for tipo in tipos
+            })
 
-            reason_col, radius_col = st.columns(2)
-            with reason_col:
-                reason = st.selectbox(
-                    "Motivo o servicio",
-                    ["Urgencias y Emergencias", *servicios],
-                    key="care_reason",
-                )
-            with radius_col:
-                radius_km = st.slider(
-                    "Radio de búsqueda (km)",
-                    min_value=1,
-                    max_value=50,
-                    value=10,
-                    step=1,
-                    key="care_radius",
-                )
+            categorias = st.pills(
+                "Categoría",
+                catalog.categorias,
+                selection_mode="multi",
+                default=list(detected.categorias),
+                key="nlp_categorias",
+            )
+            titularidades = st.pills(
+                "Titularidad",
+                ["Público", "Privado"],
+                selection_mode="multi",
+                default=list(detected.titularidades),
+                key="nlp_titularidades",
+            )
+            tipos = st.multiselect(
+                "Tipo de centro",
+                tipos_disponibles,
+                default=list(detected.tipos),
+                key="nlp_tipos",
+            )
+            municipios = st.multiselect(
+                "Municipio",
+                catalog.municipios,
+                default=list(detected.municipios),
+                key="nlp_municipios",
+            )
+            especialidades = st.multiselect(
+                "Servicio / especialidad",
+                catalog.especialidades,
+                default=list(detected.especialidades),
+                key="nlp_especialidades",
+            )
+            reason_options = ["Sin motivo específico", "Urgencias y Emergencias", *catalog.especialidades]
+            reason = st.selectbox(
+                "Motivo principal",
+                reason_options,
+                index=(
+                    reason_options.index(detected.reason)
+                    if detected.reason in reason_options
+                    else 0
+                ),
+                key="nlp_reason",
+            )
+            if reason == "Sin motivo específico":
+                reason = ""
+            radius_km = st.slider(
+                "Radio de búsqueda (km)",
+                min_value=1,
+                max_value=50,
+                value=int(detected.radius_km),
+                key="nlp_radius",
+            )
 
-        return location, reason, float(radius_km), submitted
+            from models.filters import FilterCriteria
+
+            edited = FilterCriteria(
+                categorias=tuple(categorias),
+                tipos=tuple(tipos),
+                municipios=tuple(municipios),
+                titularidades=tuple(titularidades),
+                especialidades=tuple(especialidades),
+                texto=query,
+                location=location,
+                reason=reason,
+                radius_km=float(radius_km),
+            )
+
+        st.button(
+            "Limpiar todos los filtros",
+            icon=":material/filter_alt_off:",
+            on_click=_clear_all_filters,
+        )
+
+        return edited, submitted

@@ -11,7 +11,6 @@ from models.location_service import geocode_location, rank_by_external_route
 from views.detail_view import DetailView
 from views.location_search_view import LocationSearchView
 from views.map_view import MapView
-from views.sidebar_view import SidebarView
 from views.stats_view import StatsView
 from views.table_view import TableView
 
@@ -32,12 +31,14 @@ class HealthController:
         self.model = _load_model()
 
     def run(self) -> None:
-        st.title("Centros sanitarios de la Comunidad de Madrid")
+        st.title("BuscaSalud Madrid")
+        st.caption("Buscador inteligente de servicios sanitarios de la Comunidad de Madrid")
 
         # 1) La vista recoge la intención del usuario en el panel principal.
-        criteria = SidebarView.render(self.model.catalog())
+        catalog = self.model.catalog()
+        criteria, search_submitted = LocationSearchView.render(catalog)
 
-        # 2) El modelo resuelve la consulta.
+        # 2) El modelo resuelve la consulta con los filtros parseados o editados.
         resultados = self.model.search(criteria)
         resumen = self.model.summarize(resultados)
 
@@ -49,12 +50,19 @@ class HealthController:
                 f"{sin_ubicacion} centros de la selección no tienen coordenadas válidas y no aparecen en el mapa."
             )
 
-        location, reason, radius_km, search_submitted = LocationSearchView.render(
-            self.model.catalog().especialidades
-        )
+        location = criteria.location
+        reason = criteria.reason
+        radius_km = criteria.radius_km
+
+        location_text = location.strip() if location else ""
+        gps_coordinates = st.session_state.get("gps_coordinates")
+
+        if not search_submitted and not location_text and not gps_coordinates:
+            st.session_state.pop("care_search_results", None)
+            st.session_state.pop("care_origin", None)
+            st.session_state.pop("care_radius_km", None)
 
         if search_submitted:
-            gps_coordinates = st.session_state.get("gps_coordinates")
             origin = None
 
             if location.strip():
@@ -139,6 +147,9 @@ class HealthController:
                                 icon=":material/directions:",
                             )
             else:
+                st.session_state.pop("care_search_results", None)
+                st.session_state.pop("care_origin", None)
+                st.session_state.pop("care_radius_km", None)
                 st.error("Introduce una ubicación o permite usar tu ubicación GPS.")
 
         tab_mapa, tab_tabla, tab_stats = st.tabs(["Mapa", "Tabla", "Estadísticas"])
