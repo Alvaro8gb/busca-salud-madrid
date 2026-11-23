@@ -65,7 +65,13 @@ class HealthController:
         if search_submitted:
             origin = None
 
-            if location.strip():
+            if gps_coordinates:
+                origin = (
+                    float(gps_coordinates["lat"]),
+                    float(gps_coordinates["lon"]),
+                    "Ubicación GPS",
+                )
+            elif location.strip():
                 with st.spinner("Buscando la ubicación…"):
                     try:
                         origin = geocode_location(location)
@@ -73,12 +79,11 @@ class HealthController:
                             st.warning("No se encontró esa ubicación en Madrid.")
                     except Exception as exc:
                         st.error(f"No se pudo geocodificar la ubicación: {exc}")
-            elif gps_coordinates:
-                origin = (
-                    float(gps_coordinates["lat"]),
-                    float(gps_coordinates["lon"]),
-                    "Ubicación GPS",
-                )
+            else:
+                st.session_state.pop("care_search_results", None)
+                st.session_state.pop("care_origin", None)
+                st.session_state.pop("care_radius_km", None)
+                st.error("Introduce una ubicación o permite usar tu ubicación GPS.")
 
             if origin:
                 lat, lon, label = origin

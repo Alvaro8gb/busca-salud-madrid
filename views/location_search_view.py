@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import streamlit as st
-from models.location_service import reverse_geocode_location
 
 _GEOLOCATION_COMPONENT = st.components.v2.component(
     "madrid_health_geolocation",
@@ -87,23 +86,6 @@ class LocationSearchView:
 
         st.subheader("Buscar atención sanitaria")
 
-        gps_result = _GEOLOCATION_COMPONENT(
-            key="gps_location",
-            data={"label": "Usar mi ubicación GPS"},
-            on_coordinates_change=lambda: None,
-            on_requested_change=lambda: None,
-        )
-
-        coordinates = getattr(gps_result, "coordinates", None)
-        if coordinates:
-            st.session_state["gps_coordinates"] = coordinates
-            address = reverse_geocode_location(
-                float(coordinates["lat"]), float(coordinates["lon"])
-            )
-            if address and st.session_state.get("gps_address_applied") != address:
-                st.session_state["nlp_location"] = address
-                st.session_state["gps_address_applied"] = address
-
         query = st.text_input(
             "Describe lo que buscas",
             key="unified_health_query",
@@ -128,6 +110,21 @@ class LocationSearchView:
 
         with st.container(border=True):
             st.subheader("Dirección")
+
+            gps_result = _GEOLOCATION_COMPONENT(
+                key="gps_location",
+                data={"label": "Usar mi ubicación GPS"},
+                on_coordinates_change=lambda: None,
+                on_requested_change=lambda: None,
+            )
+
+            coordinates = getattr(gps_result, "coordinates", None)
+            if coordinates:
+                lat = float(coordinates["lat"])
+                lon = float(coordinates["lon"])
+                st.session_state["gps_coordinates"] = {"lat": lat, "lon": lon}
+                st.session_state["care_origin"] = {"lat": lat, "lon": lon}
+
             location = st.text_input(
                 "Dirección o municipio",
                 key="nlp_location",

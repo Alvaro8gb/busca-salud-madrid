@@ -10,7 +10,7 @@ import streamlit as st
 
 import config
 
-_TOOLTIP_STYLE = {"backgroundColor": "#1f2937", "color": "white", "fontSize": "12px"}
+_TOOLTIP_STYLE = {"backgroundColor": "#ffffff", "color": "#1f2937", "border": "1px solid #d1d5db", "fontSize": "12px"}
 _RADIO_BASE = {"Hospitales": 260, "Atención primaria": 160}
 
 
@@ -41,15 +41,19 @@ class MapView:
         )]
 
         if origin:
+            origin_data = [{"lat": origin["lat"], "lon": origin["lon"], "texto": "TU UBICACIÓN ▲"}]
             layers.append(pdk.Layer(
-                "ScatterplotLayer",
+                "TextLayer",
                 id="origen",
-                data=[{"lat": origin["lat"], "lon": origin["lon"]}],
+                data=origin_data,
                 get_position="[lon, lat]",
-                get_fill_color=[25, 118, 210, 230],
-                get_radius=120,
-                radius_min_pixels=7,
-                radius_max_pixels=12,
+                get_text="texto",
+                get_color=[25, 118, 210, 255],
+                get_size=16,
+                get_text_anchor="'middle'",
+                get_alignment_baseline="'bottom'",
+                get_pixel_offset=[0, -18],
+                billboard=True,
                 pickable=False,
             ))
         if origin and radius_km:
@@ -81,6 +85,7 @@ class MapView:
             layers=layers,
             initial_view_state=MapView._view_state(view_points),
             tooltip=tooltip,
+            map_style=pdk.map_styles.CARTO_LIGHT,
         )
 
         event = st.pydeck_chart(
