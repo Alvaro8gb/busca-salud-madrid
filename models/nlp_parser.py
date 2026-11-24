@@ -14,22 +14,25 @@ def normalize(value: str) -> str:
     return "".join(char for char in text if unicodedata.category(char) != "Mn")
 
 
+def _contains_phrase(query: str, value: str) -> bool:
+    """Match a normalized catalog phrase on word boundaries."""
+    phrase = normalize(value).strip()
+    return bool(phrase and re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", query))
+
+
 def parse_search(text: str, catalog: Catalog) -> FilterCriteria:
     """Extrae filtros conocidos con coincidencias normalizadas y tolerantes."""
     query = normalize(text)
 
-    categorias = tuple(
-        value for value in catalog.categorias
-        if normalize(value) in query
-    )
+    categorias = tuple(value for value in catalog.categorias if _contains_phrase(query, value))
     tipos = tuple(
         value for value in catalog.tipos_por_categoria.values()
         for value in value
-        if normalize(value) in query
+        if _contains_phrase(query, value)
     )
     municipios = tuple(
         value for value in catalog.municipios
-        if value != "Sin dato" and normalize(value) in query
+        if value != "Sin dato" and _contains_phrase(query, value)
     )
 
     service_aliases = {
@@ -48,11 +51,11 @@ def parse_search(text: str, catalog: Catalog) -> FilterCriteria:
             return False
 
         normalized_service = normalize(service)
-        if normalized_service in query:
+        if _contains_phrase(query, normalized_service):
             return True
 
         aliases = service_aliases.get(normalized_service, ())
-        if any(alias in query for alias in aliases):
+        if any(_contains_phrase(query, alias) for alias in aliases):
             return True
 
         alias_words = {
@@ -73,9 +76,9 @@ def parse_search(text: str, catalog: Catalog) -> FilterCriteria:
     )
 
     titularidades = []
-    if re.search(r"\b(publico|publica|salud publica|administracion)\b", query):
+    if re.search(r"\b(public[oa]s?|salud publica|administracion)\b", query):
         titularidades.append("Público")
-    if re.search(r"\b(privado|privada|clinica privada)\b", query):
+    if re.search(r"\b(privad[oa]s?|clinica privada)\b", query):
         titularidades.append("Privado")
 
     radius_match = re.search(r"(?:radio(?: de)?|a menos de|en un radio de)\s*(\d+)\s*(?:km|kilometros?|metros?)?", query)
@@ -88,6 +91,54 @@ def parse_search(text: str, catalog: Catalog) -> FilterCriteria:
     location = _extract_location(text)
     if not location and municipios:
         location = municipios[0]
+
+    recognized_terms = {
+        word
+        for value in (*categorias, *tipos, *municipios, *titularidades)
+        for word in re.findall(r"[a-z0-9]+", normalize(value))
+    }
+    if "Público" in titularidades:
+        recognized_terms.update(("publico", "publica", "administracion"))
+    if "Privado" in titularidades:
+        recognized_terms.update(("privado", "privada", "clinica"))
+    for service in especialidades:
+        normalized_service = normalize(service)
+        aliases = service_aliases.get(normalized_service, ())
+        recognized_terms.update(
+            word
+            for term in (normalized_service, *aliases)
+            for word in re.findall(r"[a-z0-9]+", term)
+        )
+
+    if location:
+        recognized_terms.update(re.findall(r"[a-z0-9]+", normalize(location)))
+
+    # Strip recognized catalog phrases before free-text extraction. Exact
+    # filters still carry these constraints; residual text is only for terms
+    # the catalog does not understand.
+    radius_text = re.sub(
+        r"(?:radio(?:\s+de)?|a\s+menos\s+de|en\s+un\s+radio\s+de)\s*\d+\s*(?:km|kilometros?|metros?)?",
+        " ",
+        query,
+    )
+    for value in (*categorias, *tipos, *municipios):
+        radius_text = re.sub(
+            rf"(?<![a-z0-9]){re.escape(normalize(value))}(?![a-z0-9])",
+            " ",
+            radius_text,
+        )
+    stop_words = {
+        "a", "al", "busco", "buscar", "con", "de", "del", "el", "en", "la",
+        "cerca", "desde", "kilometro", "kilometros", "km", "las", "los", "me",
+        "menos", "necesito", "para", "por", "radio", "metro", "metros", "quiero",
+        "un", "una",
+    }
+    texto = " ".join(
+        word
+        for word in re.findall(r"[a-z0-9]+", radius_text)
+        if word not in recognized_terms and word not in stop_words
+    )
+
     reason = ""
     reason_candidates = []
     for service in especialidades:
@@ -106,7 +157,7 @@ def parse_search(text: str, catalog: Catalog) -> FilterCriteria:
         municipios=tuple(dict.fromkeys(municipios)),
         titularidades=tuple(dict.fromkeys(titularidades)),
         especialidades=tuple(dict.fromkeys(especialidades)),
-        texto="",
+        texto=texto,
         location=location,
         reason=reason,
         radius_km=radius_km,
@@ -116,7 +167,7 @@ def parse_search(text: str, catalog: Catalog) -> FilterCriteria:
 def _extract_location(text: str) -> str:
     patterns = (
         r"(?:cerca de|desde|ubicado en|direcci[oó]n)\s+(.+?)(?:\s*(?:radio|a menos de|publico|publica|privado|privada|urgencias|cardiolog|pediatr)|$)",
-        r"\b(?:en)\s+(?!(?:el|la|los|las|un|una)\b)([A-ZÁÉÍÓÚÑ][^,]*(?:Madrid|Madrilena)?)",
+        r"\ben\s+(?!(?:el|la|los|las|un|una)\b)([A-ZÁÉÍÓÚÑ][^,]*?)(?=\s+(?:con\s+)?(?:un\s+)?radio\b|\s+(?:public[oa]s?|privad[oa]s?|urgencias|cardiolog|pediatr)|$|,)",
     )
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)

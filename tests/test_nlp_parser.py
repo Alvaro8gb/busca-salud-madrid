@@ -28,7 +28,16 @@ def test_parse_public_cardio_in_madrid(catalog):
     assert "Madrid" in result.municipios
     assert "Cardiología" in result.especialidades
     assert result.reason == "Cardiología"
+    assert result.texto == ""
+    assert result.location == "Madrid"
     assert result.radius_km == 10
+
+
+def test_unrecognized_query_terms_are_kept_for_text_search(catalog):
+    result = parse_search("Busco un centro veterinario en Madrid", catalog)
+
+    assert "Madrid" in result.municipios
+    assert result.texto == "centro veterinario"
 
 
 def test_parse_private_municipality_and_distance(catalog):
@@ -79,3 +88,26 @@ def test_empty_query_returns_no_filters(catalog):
     assert result.especialidades == ()
     assert result.location == ""
     assert result.radius_km == 10
+
+
+@pytest.mark.parametrize(
+    ("query", "field", "expected"),
+    [
+        ("hospitales en Madrid", "categorias", "Hospitales"),
+        ("hospital general en Madrid", "tipos", "Hospital general"),
+        ("clínica dental pública en Madrid", "titularidades", "Público"),
+        ("urgencias pediátricas en Madrid", "especialidades", "Pediatría"),
+    ],
+)
+def test_extracted_catalog_filters_do_not_leak_into_free_text(catalog, query, field, expected):
+    result = parse_search(query, catalog)
+
+    assert expected in getattr(result, field)
+    assert result.texto == ""
+
+
+def test_municipality_requires_word_boundaries(catalog):
+    result = parse_search("Busco cardiología en Madridista", catalog)
+
+    assert result.municipios == ()
+    assert "Madridista" in result.texto

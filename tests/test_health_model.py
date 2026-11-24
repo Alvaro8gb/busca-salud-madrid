@@ -67,3 +67,27 @@ def test_text_search_is_normalized():
     result = model.search(FilterCriteria(texto="alcorcon"))
 
     assert list(result["registro"]) == ["A2"]
+
+
+def test_parsed_filters_are_applied_to_search_results():
+    from models.filters import Catalog
+    from models.nlp_parser import parse_search
+
+    centers = make_centers()
+    model = HealthModel(centers)
+    catalog = Catalog(
+        categorias=["Hospitales", "Atención primaria"],
+        tipos_por_categoria={"Hospitales": ["Hospital general"], "Atención primaria": ["Centro de salud"]},
+        municipios=["Madrid", "Alcorcón"],
+        titularidades=["Público", "Privado"],
+        especialidades=["Cardiología", "Urgencias y Emergencias", "Pediatría"],
+    )
+
+    criteria = parse_search("hospitales públicos con cardiología en Madrid", catalog)
+    result = model.search(criteria)
+
+    assert criteria.categorias == ("Hospitales",)
+    assert criteria.titularidades == ("Público",)
+    assert criteria.municipios == ("Madrid",)
+    assert criteria.especialidades == ("Cardiología",)
+    assert list(result["registro"]) == ["A1"]

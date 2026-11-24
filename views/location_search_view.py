@@ -73,6 +73,12 @@ _RESET_KEYS = (
     "care_radius_km",
 )
 
+_FILTER_WIDGET_KEYS = (
+    "nlp_categorias", "nlp_titularidades", "nlp_tipos",
+    "nlp_municipios", "nlp_especialidades", "nlp_location",
+    "nlp_reason", "nlp_radius",
+)
+
 
 def _clear_all_filters() -> None:
     for key in _RESET_KEYS:
@@ -97,13 +103,15 @@ class LocationSearchView:
 
         query_signature = query.strip().lower()
         if st.session_state.get("nlp_query_signature") != query_signature:
-            for key in (
-                "nlp_categorias", "nlp_titularidades", "nlp_tipos",
-                "nlp_municipios", "nlp_especialidades", "nlp_location",
-                "nlp_reason", "nlp_radius",
-            ):
-                st.session_state.pop(key, None)
             st.session_state["nlp_query_signature"] = query_signature
+            st.session_state["nlp_categorias"] = list(detected.categorias)
+            st.session_state["nlp_titularidades"] = list(detected.titularidades)
+            st.session_state["nlp_tipos"] = list(detected.tipos)
+            st.session_state["nlp_municipios"] = list(detected.municipios)
+            st.session_state["nlp_especialidades"] = list(detected.especialidades)
+            st.session_state["nlp_reason"] = detected.reason or "Sin motivo específico"
+            st.session_state["nlp_radius"] = int(detected.radius_km)
+            st.session_state["nlp_location"] = detected.location
 
         if "nlp_location" not in st.session_state:
             st.session_state["nlp_location"] = detected.location
@@ -150,43 +158,34 @@ class LocationSearchView:
                 "Categoría",
                 catalog.categorias,
                 selection_mode="multi",
-                default=list(detected.categorias),
                 key="nlp_categorias",
             )
             titularidades = st.pills(
                 "Titularidad",
                 ["Público", "Privado"],
                 selection_mode="multi",
-                default=list(detected.titularidades),
                 key="nlp_titularidades",
             )
             tipos = st.multiselect(
                 "Tipo de centro",
                 tipos_disponibles,
-                default=list(detected.tipos),
                 key="nlp_tipos",
             )
             municipios = st.multiselect(
                 "Municipio",
                 catalog.municipios,
-                default=list(detected.municipios),
                 key="nlp_municipios",
             )
             especialidades = st.multiselect(
                 "Servicio / especialidad",
                 catalog.especialidades,
-                default=list(detected.especialidades),
                 key="nlp_especialidades",
             )
             reason_options = ["Sin motivo específico", "Urgencias y Emergencias", *catalog.especialidades]
             reason = st.selectbox(
                 "Motivo principal",
                 reason_options,
-                index=(
-                    reason_options.index(detected.reason)
-                    if detected.reason in reason_options
-                    else 0
-                ),
+                index=0,
                 key="nlp_reason",
             )
             if reason == "Sin motivo específico":
@@ -195,7 +194,6 @@ class LocationSearchView:
                 "Radio de búsqueda (km)",
                 min_value=1,
                 max_value=50,
-                value=int(detected.radius_km),
                 key="nlp_radius",
             )
 
@@ -207,7 +205,7 @@ class LocationSearchView:
                 municipios=tuple(municipios),
                 titularidades=tuple(titularidades),
                 especialidades=tuple(especialidades),
-                texto=query,
+                texto=detected.texto,
                 location=location,
                 reason=reason,
                 radius_km=float(radius_km),
