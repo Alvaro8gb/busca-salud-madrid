@@ -29,7 +29,13 @@ class TableView:
             height=560,
             column_config={"Servicios": st.column_config.ListColumn("Servicios")},
         )
-        descarga = tabla.assign(Servicios=tabla["Servicios"].str.join(" | "))
+        descarga = tabla.assign(
+            Servicios=tabla["Servicios"].map(
+                lambda servicios: " | ".join(map(str, servicios))
+                if isinstance(servicios, (list, tuple, set, frozenset))
+                else str(servicios)
+            )
+        )
         st.download_button(
             "Descargar resultados (CSV)",
             descarga.to_csv(index=False, sep=";").encode("utf-8-sig"),

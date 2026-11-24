@@ -39,7 +39,8 @@ class HealthCenterRepository:
         raw = pd.DataFrame(self._load_records()).drop(columns=["_id", "rank"], errors="ignore")
         # Se descarta la columna NIF a propósito: contiene datos personales.
         raw = raw.rename(columns=COLUMNAS).drop(columns=["NIF"], errors="ignore")
-        raw = raw.astype("string").apply(lambda col: col.str.strip()).replace("", pd.NA)
+        raw = raw.astype("string").apply(lambda col: col.astype("string").str.strip())
+        raw = raw.replace("", pd.NA)
 
         # El CSV trae una fila por (centro, servicio): se agrupa a un registro por centro.
         grouped = raw.groupby("registro", sort=False)
@@ -48,7 +49,11 @@ class HealthCenterRepository:
             lambda s: sorted(set(s.dropna()))
         )
         centers = centers.reset_index()
-        centers["n_servicios"] = centers["servicios"].str.len()
+        # ``servicios`` contains Python lists, so use element-wise ``len``.
+        # pandas' string accessor rejects list-valued object columns in newer releases.
+        centers["n_servicios"] = centers["servicios"].map(
+            lambda services: len(services) if isinstance(services, list) else 0
+        )
 
         centers = self._add_coordinates(centers)
         centers = self._add_derived_fields(centers)
@@ -131,12 +136,10 @@ class HealthCenterRepository:
             ),
         )
 
-        via = (
-            df["via_tipo"].fillna("").str.capitalize()
-            + " "
-            + df["via_nombre"].fillna("")
-        ).str.strip()
-        numero = df["via_numero"].fillna("")
+        via_tipo = df["via_tipo"].fillna("").astype("string").str.capitalize()
+        via_nombre = df["via_nombre"].fillna("").astype("string")
+        via = (via_tipo + " " + via_nombre).str.strip()
+        numero = df["via_numero"].fillna("").astype("string")
         df["direccion"] = [f"{v}, {n}" if n else v for v, n in zip(via, numero)]
         df["direccion"] = df["direccion"].replace("", "Dirección no disponible")
         df["municipio"] = df["municipio"].fillna("Sin dato")
