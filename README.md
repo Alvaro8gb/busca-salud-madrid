@@ -13,7 +13,7 @@ pipenv install
 pipenv run app
 ```
 
-También puede ejecutarse directamente:
+También puede ejecutarse directamente (estas dependencias se comparten con Streamlit Community Cloud):
 
 ```bash
 pip install -r requirements.txt

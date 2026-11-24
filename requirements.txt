@@ -1,0 +1,4 @@
+# Dependencies installed by Streamlit Community Cloud.
+streamlit
+pyproj
+requests
