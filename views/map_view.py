@@ -41,19 +41,27 @@ class MapView:
         )]
 
         if origin:
-            origin_data = [{"lat": origin["lat"], "lon": origin["lon"], "texto": "TU UBICACIÓN ▲"}]
+            lat = origin["lat"]
+            lon = origin["lon"]
+            origin_data = [{
+                "poligono": [[
+                    [lon, lat - 0.0006],
+                    [lon - 0.00055, lat + 0.00045],
+                    [lon + 0.00055, lat + 0.00045],
+                    [lon, lat - 0.0006],
+                ]]
+            }]
             layers.append(pdk.Layer(
-                "TextLayer",
+                "PolygonLayer",
                 id="origen",
                 data=origin_data,
-                get_position="[lon, lat]",
-                get_text="texto",
-                get_color=[25, 118, 210, 255],
-                get_size=16,
-                get_text_anchor="'middle'",
-                get_alignment_baseline="'bottom'",
-                get_pixel_offset=[0, -18],
-                billboard=True,
+                get_polygon="poligono",
+                get_fill_color=[25, 118, 210, 255],
+                get_line_color=[255, 255, 255, 255],
+                line_width_min_pixels=2,
+                stroked=True,
+                filled=True,
+                extruded=False,
                 pickable=False,
             ))
         if origin and radius_km:

@@ -21,7 +21,7 @@ _COLUMNAS = {
 class TableView:
     @staticmethod
     def render(df: pd.DataFrame) -> None:
-        tabla = df[list(_COLUMNAS)].rename(columns=_COLUMNAS)
+        tabla = df.head(5)[list(_COLUMNAS)].rename(columns=_COLUMNAS)
         st.dataframe(
             tabla,
             hide_index=True,
