@@ -2,7 +2,10 @@
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://buscamadridsalud.streamlit.app/)
 
-![Logo](assests/logo.png)
+<p align="center">
+  <img src="assests/logo.png" width="180">
+</p>
+
 Aplicación web para buscar centros sanitarios de la Comunidad de Madrid mediante filtros tradicionales y búsquedas en lenguaje natural. Permite localizar centros cercanos, calcular rutas y visualizar los resultados en un mapa claro e interactivo.
 
 ## Ejecutar
