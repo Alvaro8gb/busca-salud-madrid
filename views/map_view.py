@@ -20,7 +20,7 @@ class MapView:
         df: pd.DataFrame,
         origin: dict | None = None,
         radius_km: float | None = None,
-    ) -> str | None:
+    ) -> dict | None:
         puntos = df[df["tiene_ubicacion"]]
         if puntos.empty:
             st.info("No hay centros con ubicación para los filtros seleccionados.")
@@ -105,7 +105,7 @@ class MapView:
         )
         objetos = (event.selection or {}).get("objects", {}) if event else {}
         seleccion = objetos.get("centros") or []
-        return seleccion[0].get("registro") if seleccion else None
+        return seleccion[0] if seleccion else None
 
     # ------------------------------------------------------------------ helpers
     @staticmethod

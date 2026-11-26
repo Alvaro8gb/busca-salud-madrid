@@ -32,5 +32,7 @@ class DetailView:
                 "Abrir en OpenStreetMap",
                 f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=18/{lat}/{lon}",
             )
-        with st.expander(f"Servicios ({centro['n_servicios']})", expanded=True):
-            st.markdown("\n".join(f"- {s}" for s in centro["servicios"]))
+        services = centro.get("servicios") or []
+        service_count = len(services)
+        with st.expander(f"Servicios ({service_count})", expanded=True):
+            st.markdown("\n".join(f"- {s}" for s in services))

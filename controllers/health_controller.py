@@ -166,9 +166,14 @@ class HealthController:
                 map_origin = st.session_state.get("care_origin")
                 map_radius = st.session_state.get("care_radius_km")
                 map_results = pd.DataFrame(nearby) if nearby else resultados
-                registro = MapView.render(map_results, map_origin, map_radius)
+                seleccion = MapView.render(map_results, map_origin, map_radius)
             with col_ficha:
-                DetailView.render(self.model.get_center(registro) if registro else None)
+                centro = (
+                    self.model.get_center(seleccion["registro"])
+                    if seleccion and seleccion.get("registro")
+                    else None
+                )
+                DetailView.render(centro)
 
         with tab_tabla:
             TableView.render(resultados)

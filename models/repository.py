@@ -45,15 +45,14 @@ class HealthCenterRepository:
         # El CSV trae una fila por (centro, servicio): se agrupa a un registro por centro.
         grouped = raw.groupby("registro", sort=False)
         centers = grouped.first().drop(columns=["servicio"])
-        centers["servicios"] = grouped["servicio"].agg(
-            lambda s: sorted(set(s.dropna()))
+        # Build each group's service list as a scalar object. ``GroupBy.agg`` can
+        # expand list results into a Series/DataFrame depending on pandas version.
+        service_lists = grouped["servicio"].apply(
+            lambda s: sorted(set(s.dropna().astype(str)))
         )
         centers = centers.reset_index()
-        # ``servicios`` contains Python lists, so use element-wise ``len``.
-        # pandas' string accessor rejects list-valued object columns in newer releases.
-        centers["n_servicios"] = centers["servicios"].map(
-            lambda services: len(services) if isinstance(services, list) else 0
-        )
+        centers["servicios"] = service_lists.to_numpy(dtype=object)
+        centers["n_servicios"] = centers["servicios"].map(len)
 
         centers = self._add_coordinates(centers)
         centers = self._add_derived_fields(centers)
